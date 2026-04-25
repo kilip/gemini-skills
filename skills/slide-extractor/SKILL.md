@@ -1,47 +1,116 @@
 ---
 name: slide-extractor
-description: Extract text from PowerPoint (.pptx) slides using smart OCR waterfall logic.
+description: >
+  Use this skill EVERY TIME you need to extract or read text content from a PowerPoint (.pptx) file.
+  ALWAYS use this skill when: a .pptx file exists in telegram_files/ and needs to be processed,
+  when the user says "proses slide", "baca presentasi", "extract slide", or uploads a .pptx file via Telegram.
+  This skill handles text extraction including slides that are image-only (Canva, AI-generated, etc.).
+  Use this as STEP 1 before doing any analysis, categorization, or inventory creation of a presentation.
 ---
 
-# Slide Extractor Skill
+# Slide Extractor
 
-This skill allows agents to extract all text content from PowerPoint presentation files, including text embedded in images or slides that are entirely made of images (e.g., from AI tools like NotebookLM).
+Extract all text from a `.pptx` file and save the result as a `.md` file in the same folder.
 
-## Capabilities
+## When to Use
 
-- **Direct Extraction**: Quickly extracts text from standard text shapes and tables using `python-pptx`.
-- **Waterfall OCR**: Automatically detects images and performs OCR using the best available engine:
-  1. **Tesseract OCR**: Fast, local engine (Prioritized).
-  2. **EasyOCR**: Advanced AI fallback (Downloads models on first run).
-- **Recursive Scan**: Deeply scans grouped shapes to find hidden images.
-- **Markdown Output**: Formats extracted text into clean Markdown for easy processing.
-- **Google Drive Integration**: Supports downloading and processing files via Drive ID or URL (requires `gog` CLI).
+Use this skill FIRST whenever you need to read the content of a `.pptx` file — before writing summaries, categories, tags, or inventory notes.
 
-## Usage
+---
 
-Run the script via `uv` to handle dependencies automatically:
+## Step-by-Step Instructions
 
-```powershell
-uv run extract_pptx.py <path_to_pptx_file>
+### Step 1: Identify the input file
+
+The `.pptx` file is in the `telegram_files/` directory.
+
+Example:
+```
+telegram_files/Mengenal_Generasi_Z.pptx
 ```
 
-### Options
+### Step 2: Run the extractor
 
-- `--engine tesseract`: Force use of Tesseract engine.
-- `--engine easyocr`: Force use of EasyOCR engine.
-- `--account <name>`: Specify Google Drive account for `gog` CLI.
+Run this exact command (replace the filename):
 
-## Implementation Details
+```bash
+uv run skills/slide-extractor/extract_pptx.py telegram_files/Mengenal_Generasi_Z.pptx
+```
 
-- **File**: `extract_pptx.py`
-- **Dependencies**: `python-pptx`, `pytesseract`, `easyocr`, `Pillow`, `numpy`, `opencv-python-headless`
-- **OCR Logic**: 
-  - If Tesseract is found in standard Windows paths (`C:\Program Files\Tesseract-OCR\tesseract.exe`), it will be used as the default engine.
-  - If Tesseract is missing or `--engine easyocr` is used, it will lazy-load EasyOCR and download models if necessary.
-- **GDrive Integration**: Uses the `gog` CLI tool to download presentations from Google Drive into a temporary directory (`slide-extractor`) before processing.
+The script will automatically save the output as a `.md` file in the **same folder** with the **same name**:
 
-## Best Practices for AI Agents
+```
+telegram_files/Mengenal_Generasi_Z.md  ← output saved here
+```
 
-1. **Verify File Existence**: Ensure the target `.pptx` file exists before calling the script.
-2. **Handle Large Files**: For very large presentations with many images, the OCR process may take several minutes.
-3. **Analyze Output**: OCR text is prefixed with `[OCR-Tesseract]` or `[OCR-EasyOCR]` and wrapped in blockquotes for context.
+You do NOT need to specify an output path. The script handles it automatically.
+
+### Step 3: Read the output file
+
+After the script finishes, read the output `.md` file:
+
+```
+telegram_files/Mengenal_Generasi_Z.md
+```
+
+Use the content of this file for the next steps (executive brief, categorization, inventory, etc.).
+
+---
+
+## Output Format
+
+The `.md` file contains text per slide:
+
+```markdown
+---
+title: Mengenal_Generasi_Z
+filename: Mengenal_Generasi_Z.pptx
+slide_count: 32
+---
+
+# Slide 1
+Judul slide pertama
+Subjudul atau teks lainnya
+
+---
+
+# Slide 2
+Teks dari slide kedua
+
+---
+```
+
+---
+
+## How OCR Works (Simple Version)
+
+The script tries two methods in order:
+
+1. **Direct text extraction** — reads text shapes directly (fast, works for most slides)
+2. **OCR fallback** — if a slide contains images instead of text shapes, it runs OCR automatically
+   - First tries **Tesseract** (fast)
+   - If Tesseract fails, falls back to **EasyOCR** (slower but more accurate)
+
+You do NOT need to choose or configure anything. It happens automatically.
+
+---
+
+## Troubleshooting
+
+| Problem | Solution |
+|---|---|
+| `uv: command not found` | Install uv: `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
+| Script runs but output file is empty | The slide may be fully image-based. OCR will run — wait for it to finish. |
+| OCR is very slow | Normal for image-heavy files (20MB+). Can take several minutes. |
+| `tesseract: command not found` warning | Script will auto-fallback to EasyOCR. No action needed. |
+
+---
+
+## Dependencies
+
+Handled automatically by `uv`. No manual install needed.
+
+- `python-pptx` — reads PowerPoint files
+- `pytesseract` — Tesseract OCR wrapper
+- `easyocr` — AI-based OCR fallback
+- `Pillow`, `numpy`, `opencv-python-headless` — image processing

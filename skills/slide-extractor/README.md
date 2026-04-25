@@ -5,29 +5,29 @@ A powerful tool to extract text from PowerPoint (.pptx) files, including image-o
 ## 🛠 Features
 - **Waterfall OCR**: Prioritizes Tesseract (fast) and fallbacks to EasyOCR (accurate) if needed.
 - **Deep Scan**: Recursively extracts text from grouped shapes and nested elements.
-- **Smart Output**: Clean Markdown formatting with OCR source prefixes for better context.
-- **Google Drive Support**: Direct extraction from Google Drive IDs/URLs (requires `gog` CLI).
+- **Smart Output**: Automatically saves extraction results to a `.md` file in the same directory.
 - **Auto-Install**: Fully supports `uv` and `package.json` for seamless installation via `npx skills`.
 
 ## 🚀 Usage
 
 Ensure you have `uv` installed, then run:
 
-```powershell
+```bash
 uv run extract_pptx.py <path_to_pptx_file>
 ```
 
+The script will generate a Markdown file with the same name as the input file in the same folder.
+
 ### Options
-You can force a specific OCR engine or specify a GDrive account:
-```powershell
+You can force a specific OCR engine:
+```bash
 uv run extract_pptx.py file.pptx --engine tesseract
-uv run extract_pptx.py file.pptx --account user@gmail.com
+uv run extract_pptx.py file.pptx --engine easyocr
 ```
 
 ## 📦 Requirements
 - **Tesseract OCR**: (Optional but recommended) Install via `choco install tesseract -y`.
 - **EasyOCR**: Automatically downloads AI models on the first run (requires internet connection).
-- **gog CLI**: Required for downloading slides from Google Drive.
 
 ## 📂 File Structure
 - `extract_pptx.py`: Main Python script.

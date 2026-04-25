@@ -13,8 +13,6 @@ import sys
 import os
 import io
 import re
-import tempfile
-import subprocess
 import numpy as np
 from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
@@ -52,6 +50,7 @@ try:
 except Exception:
     TESSERACT_AVAILABLE = False
 
+
 def get_easyocr():
     global EASYOCR_READER
     if EASYOCR_READER is None:
@@ -59,67 +58,17 @@ def get_easyocr():
         EASYOCR_READER = easyocr.Reader(['en', 'id'], gpu=False)
     return EASYOCR_READER
 
-def download_from_gdrive(file_id_or_url, account=None):
-    """
-    Downloads a file from Google Drive using the 'gog' CLI tool.
-    """
-    # Extract file ID if a URL is provided
-    file_id = file_id_or_url
-    if "drive.google.com" in file_id_or_url:
-        match = re.search(r"/d/([-\w]{25,})", file_id_or_url)
-        if match:
-            file_id = match.group(1)
-    
-    temp_dir = os.path.join(tempfile.gettempdir(), "slide-extractor")
-    os.makedirs(temp_dir, exist_ok=True)
-    
-    dest_path = os.path.join(temp_dir, f"{file_id}.pptx")
-    
-    # If file already exists in temp, we can reuse it or redownload.
-    # Let's redownload to be sure it's fresh, unless Pak Bos prefers otherwise.
-    # But for efficiency, let's check if it exists first.
-    if os.path.exists(dest_path):
-        print(f"INFO: Using cached file at {dest_path}")
-        return dest_path
-
-    print(f"INFO: Downloading file {file_id} from Google Drive...")
-    try:
-        # Build command: gog drive download <file_id> --out <dest_path> [--account <account>]
-        cmd = ["gog", "drive", "download", file_id, "--out", dest_path]
-        if account:
-            cmd.extend(["--account", account])
-            
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True
-        )
-        if result.returncode != 0:
-            print(f"Error downloading from GDrive: {result.stderr}")
-            return None
-        
-        if not os.path.exists(dest_path):
-            print("Error: gog finished but file was not found at expected path.")
-            return None
-            
-        return dest_path
-    except FileNotFoundError:
-        print("Error: 'gog' CLI tool not found. Please install it to use GDrive features.")
-        return None
-    except Exception as e:
-        print(f"Error: {e}")
-        return None
 
 def extract_text_from_pptx(pptx_path, preferred_engine=None):
     if not os.path.exists(pptx_path):
-        print(f"Error: File not found at {pptx_path}")
-        return
+        print(f"Error: File not found at {pptx_path}", file=sys.stderr)
+        return None
 
     try:
         prs = Presentation(pptx_path)
     except Exception as e:
-        print(f"Error opening PPTX: {e}")
-        return
+        print(f"Error opening PPTX: {e}", file=sys.stderr)
+        return None
 
     def perform_ocr(img_blob):
         # Priority 1: Tesseract
@@ -128,7 +77,7 @@ def extract_text_from_pptx(pptx_path, preferred_engine=None):
                 img = Image.open(io.BytesIO(img_blob))
                 ocr_text = pytesseract.image_to_string(img).strip()
                 if ocr_text:
-                    return ocr_text
+                    return f"[OCR-Tesseract]\n{ocr_text}"
             except Exception:
                 pass
 
@@ -141,16 +90,16 @@ def extract_text_from_pptx(pptx_path, preferred_engine=None):
                 results = reader.readtext(img_array, detail=0)
                 ocr_text = " ".join(results).strip()
                 if ocr_text:
-                    return ocr_text
+                    return f"[OCR-EasyOCR]\n{ocr_text}"
             except Exception:
                 pass
-        
+
         return None
 
     def get_text_and_images(shape, text_runs):
         if hasattr(shape, "text") and shape.text.strip():
             text_runs.append(shape.text.strip())
-        
+
         if shape.has_table:
             for row in shape.table.rows:
                 row_text = [cell.text_frame.text.strip() for cell in row.cells if cell.text_frame.text.strip()]
@@ -166,16 +115,20 @@ def extract_text_from_pptx(pptx_path, preferred_engine=None):
             if ocr_res:
                 text_runs.append(ocr_res)
 
-    # Metadata Header
-    print("---")
-    print(f"title: {os.path.splitext(os.path.basename(pptx_path))[0]}")
-    print(f"filename: {os.path.basename(pptx_path)}")
-    print(f"slide_count: {len(prs.slides)}")
-    print("---")
-    print()
+    # Build output as a list of lines
+    lines = []
+
+    # Metadata header
+    base_name = os.path.splitext(os.path.basename(pptx_path))[0]
+    lines.append("---")
+    lines.append(f"title: {base_name}")
+    lines.append(f"filename: {os.path.basename(pptx_path)}")
+    lines.append(f"slide_count: {len(prs.slides)}")
+    lines.append("---")
+    lines.append("")
 
     for i, slide in enumerate(prs.slides):
-        print(f"# Slide {i + 1}")
+        lines.append(f"# Slide {i + 1}")
         text_runs = []
         for shape in slide.shapes:
             get_text_and_images(shape, text_runs)
@@ -188,32 +141,47 @@ def extract_text_from_pptx(pptx_path, preferred_engine=None):
                 if clean_t and clean_t not in seen:
                     unique_text.append(t)
                     seen.add(clean_t)
-            print("\n".join(unique_text))
+            lines.append("\n".join(unique_text))
         else:
-            print("*[Empty Slide]*")
-        print("\n---\n")
+            lines.append("*[Empty Slide]*")
+
+        lines.append("")
+        lines.append("---")
+        lines.append("")
+
+    return "\n".join(lines)
+
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description="Extract text from PPTX with OCR fallback.")
-    parser.add_argument("pptx_path", help="Path to the PPTX file or Google Drive File ID/URL")
+    parser = argparse.ArgumentParser(description="Extract text from PPTX. Output saved as .md in the same folder.")
+    parser.add_argument("pptx_path", help="Path to the .pptx file (must be a local file path)")
     parser.add_argument("--engine", choices=["tesseract", "easyocr"], help="Force specific OCR engine")
-    parser.add_argument("--account", "-a", help="Google Drive account name for 'gog' CLI")
     args = parser.parse_args()
 
-    target_path = args.pptx_path
-    
-    # If path doesn't exist locally, check if it's a GDrive ID/URL
-    if not os.path.exists(target_path):
-        # Basic check: if it looks like an ID or contains drive.google.com
-        if "drive.google.com" in target_path or re.match(r"^[-\w]{25,}$", target_path):
-            downloaded_path = download_from_gdrive(target_path, account=args.account)
-            if downloaded_path:
-                target_path = downloaded_path
-            else:
-                sys.exit(1)
-        else:
-            print(f"Error: File not found at {target_path}")
-            sys.exit(1)
+    pptx_path = args.pptx_path
 
-    extract_text_from_pptx(target_path, args.engine)
+    if not os.path.exists(pptx_path):
+        print(f"Error: File not found: {pptx_path}", file=sys.stderr)
+        sys.exit(1)
+
+    if not pptx_path.lower().endswith(".pptx"):
+        print(f"Error: File must be a .pptx file: {pptx_path}", file=sys.stderr)
+        sys.exit(1)
+
+    # Determine output path: same directory, same name, .md extension
+    output_path = os.path.splitext(pptx_path)[0] + ".md"
+
+    print(f"Extracting: {pptx_path}", file=sys.stderr)
+    print(f"Output:     {output_path}", file=sys.stderr)
+
+    result = extract_text_from_pptx(pptx_path, args.engine)
+
+    if result is None:
+        print("Extraction failed.", file=sys.stderr)
+        sys.exit(1)
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write(result)
+
+    print(f"Done. Read the output file: {output_path}", file=sys.stderr)
