@@ -48,3 +48,7 @@ Each skill folder contains a `SKILL.md` file with detailed instructions designed
 
 ---
 Created and Maintained by **Anthonius Munthi and Gem**.
+
+## ⚖️ License
+
+This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
