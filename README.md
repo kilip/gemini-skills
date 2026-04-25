@@ -85,4 +85,4 @@ Every skill directory within `skills/` follows a standardized structure to ensur
 This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
 
 ---
-Created and Maintained by **Anthonius Munthi and Gem**.
+Created and Maintained by **Anthonius Munthi and Gem** with love ❤️ and coffee ☕
