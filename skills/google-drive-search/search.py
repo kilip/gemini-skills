@@ -66,15 +66,44 @@ def get_icon(mime_type):
         
     return "📄"
 
-def search_drive(keyword, account=None):
-    # Construct the query as requested: name contains '<keyword>'
-    query = f"name contains '{keyword}'"
+def search_drive(keyword, account=None, file_type=None):
+    # Construct the query
+    query_parts = []
+    if keyword:
+        query_parts.append(f"name contains '{keyword}'")
+    
+    if file_type:
+        type_mapping = {
+            "slide": [
+                "application/vnd.google-apps.presentation",
+                "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                "application/vnd.ms-powerpoint"
+            ],
+            "doc": [
+                "application/vnd.google-apps.document",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "application/msword"
+            ],
+            "pdf": ["application/pdf"],
+            "sheet": [
+                "application/vnd.google-apps.spreadsheet",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "application/vnd.ms-excel"
+            ],
+            "folder": ["application/vnd.google-apps.folder"]
+        }
+        
+        if file_type in type_mapping:
+            mimes = type_mapping[file_type]
+            mime_query = " or ".join([f"mimeType = '{m}'" for m in mimes])
+            query_parts.append(f"({mime_query})")
+
+    query = " and ".join(query_parts)
     
     # Base command
     cmd = ["gog", "drive", "search", query, "--json"]
     
     # Handle account if provided or if GOG_ACCOUNT env var exists
-    # If neither, gog will use its own default logic or error out
     if account:
         cmd.extend(["--account", account])
     elif "GOG_ACCOUNT" in os.environ:
@@ -93,7 +122,10 @@ def search_drive(keyword, account=None):
         files = data.get("files", [])
         
         if not files:
-            print(f"No files found containing '{keyword}'", file=sys.stderr)
+            search_desc = f"'{keyword}'"
+            if file_type:
+                search_desc += f" with type '{file_type}'"
+            print(f"No files found containing {search_desc}", file=sys.stderr)
             return
 
         # Output as Markdown list with icons and metadata
@@ -106,7 +138,6 @@ def search_drive(keyword, account=None):
             # Metadata
             modified = file.get("modifiedTime", "")
             if modified:
-                # Format: 2024-07-20T10:08:14.000Z -> 2024-07-20
                 modified = modified.split("T")[0]
             
             size = format_size(file.get("size"))
@@ -130,6 +161,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Wrapper for gog drive search")
     parser.add_argument("keyword", help="Search keyword for file/folder name")
     parser.add_argument("-a", "--account", help="Google account email", required=True)
+    parser.add_argument("-t", "--type", help="Filter by file type", choices=["slide", "doc", "pdf", "sheet", "folder"])
     
     args = parser.parse_args()
     
@@ -137,4 +169,4 @@ if __name__ == "__main__":
         parser.print_help()
         sys.exit(1)
         
-    search_drive(args.keyword, args.account)
+    search_drive(args.keyword, args.account, args.type)

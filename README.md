@@ -23,11 +23,11 @@ Extract text from PowerPoint (.pptx) slides using smart OCR waterfall logic (Tes
 npx skills add kilip/gemini-skills --skill slide-extractor --global
 ```
 
-### google-drive
+### google-drive-search
 Wrapper for searching and uploading files/folders in Google Drive using the `gog` CLI. Provides clean Markdown-formatted results with metadata.
 
 ```bash
-npx skills add kilip/gemini-skills --skill google-drive --global
+npx skills add kilip/gemini-skills --skill google-drive-search --global
 ```
 
 ### email-processor
