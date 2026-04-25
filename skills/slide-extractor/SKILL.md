@@ -34,7 +34,7 @@ telegram_files/Mengenal_Generasi_Z.pptx
 Run this exact command (replace the filename):
 
 ```bash
-uv run skills/slide-extractor/extract_pptx.py telegram_files/Mengenal_Generasi_Z.pptx
+uv run ~/.agents/skills/slide-extractor/extract_pptx.py telegram_files/Mengenal_Generasi_Z.pptx
 ```
 
 The script will automatically save the output as a `.md` file in the **same folder** with the **same name**:
