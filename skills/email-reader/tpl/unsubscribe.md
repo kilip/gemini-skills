@@ -1,0 +1,1 @@
+- [ ] {sender_display} - {subject} (`{account}`)
